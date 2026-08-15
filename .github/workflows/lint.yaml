@@ -13,9 +13,21 @@ jobs:
       - uses: azure/setup-helm@v4
       - name: helm lint (with CHART_VERSION resolved to a dummy semver)
         run: |
-          sed -i "s/CHART_VERSION/0.0.0/g" chart/Chart.yaml
-          helm lint chart
-          helm template t chart \
-            --set baseHost=acme-krateo.krateo.dev \
-            --set demoUser=acme >/dev/null
+          set -euo pipefail
+          # Shape-agnostic: discover charts under helm/ rather than hardcoding a path.
+          # The previous version hardcoded chart/Chart.yaml and broke the moment the repo
+          # adopted the helm/<chart-name>/ layout — a stale gate that fails on a change it
+          # was never testing.
+          found=0
+          for cf in $(find helm -mindepth 2 -maxdepth 2 -name Chart.yaml); do
+            dir=$(dirname "$cf"); found=1
+            echo "::group::$dir"
+            sed -i "s/CHART_VERSION/0.0.0/g" "$cf"
+            helm lint "$dir"
+            helm template t "$dir" \
+              --set baseHost=acme-krateo.krateo.dev \
+              --set demoUser=acme >/dev/null
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || { echo "::error::no charts found under helm/"; exit 1; }
           echo "lint + template OK"
