@@ -1,5 +1,5 @@
 # =============================================================================
-# child-sso-federation — per-tenant values. NOTHING here hardcodes braghettos.
+# child-sso-federation — per-tenant values. No image or chart here points at a dead org.
 # The wrapper (selfservice-krateo) builds these from the self-service request:
 #   baseHost = <instanceName>.<ingress.domain>
 # and all hosts/issuer derive from baseHost unless explicitly overridden.
@@ -28,7 +28,7 @@ hosts:
   ssoBridge: ""   # sso-bridge.<baseHost> — basic-auth token-bridge
 
 # The mod_auth_openidc-enabled Keystone image (baked at CR creation).
-keystoneImage: "ghcr.io/braghettos/keystone-oidc:2025.1-ubuntu_jammy"
+keystoneImage: "ghcr.io/krateo-blueprints/keystone-oidc:2025.1-ubuntu_jammy"
 
 # The portal (basic-auth) username the token-bridge maps to the demo tenant.
 # Its Keystone user + sso-bridge-<demoUser>.json cred file are provisioned by the
@@ -124,7 +124,7 @@ bridge:
 preflight:
   enabled: true
   # The fresh core-provider the child MUST run before we trust generated CRDs.
-  coreProviderImage: "ghcr.io/braghettos/krateo-core-provider:2.10.0"
+  coreProviderImage: "ghcr.io/krateo-platformops/core-provider:2.13.4"
   deployments:
     - installer-core-provider
   # CompositionDefinitions whose Crossplane external-create-pending annotation the
