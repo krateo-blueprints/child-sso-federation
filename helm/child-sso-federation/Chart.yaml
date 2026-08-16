@@ -16,9 +16,9 @@ keywords:
   - keystone
   - openstack
   - federation
-home: https://github.com/braghettos/child-sso-federation
+home: https://github.com/krateo-blueprints/child-sso-federation
 sources:
-  - https://github.com/braghettos/child-sso-federation
+  - https://github.com/krateo-blueprints/child-sso-federation
 maintainers:
   - name: braghettos
 icon: https://raw.githubusercontent.com/krateoplatformops/krateo/main/docs/media/logo.svg
