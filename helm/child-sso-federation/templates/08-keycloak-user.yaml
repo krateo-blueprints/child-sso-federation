@@ -1,4 +1,12 @@
 {{- if .Values.demoUser }}
+{{/* LOOKUP GUARD (issue #1). The KeycloakUser CRDs are created by
+     keycloak-config-kog, which THIS chart installs — so on a first install they do
+     not exist yet, and Helm validates every manifest before applying any of them.
+     Rendering the CRs unconditionally fails the whole release with "no matches for
+     kind KeycloakUser ... ensure CRDs are installed first", which is exactly why the
+     bootstrap Jobs existed: a Job can wait, a Helm manifest cannot.
+     So render the Secret always, and the CRs only once the CRD is established. The
+     next reconcile of this release picks them up. */}}
 {{- $ns := include "child-sso.namespace" . }}
 {{- $user := .Values.demoUser }}
 {{- $secretName := printf "%s-password" $user }}
@@ -40,6 +48,8 @@ type: kubernetes.io/basic-auth
 stringData:
   password: {{ $pw | quote }}
 ---
+{{- if (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" ""
+        "keycloakusers.keycloak.ogen.krateo.io") }}
 {{/* The API endpoint + credentials the KOG controller uses to reach Keycloak.
      Same bearer-token pattern as the realm/client Configurations that realm-apply
      already relies on (Secret keycloak-admin-token, key token). */}}
@@ -86,4 +96,5 @@ spec:
      declares — there is no KeycloakGroup CR here and none exists in the realm — so
      listing it would point the user at something unpublished. If group membership is
      wanted, declare a KeycloakGroup CR first and reference it then. */}}
+{{- end }}{{/* CRD lookup guard */}}
 {{- end }}
