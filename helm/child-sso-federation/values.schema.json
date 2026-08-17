@@ -3,7 +3,9 @@
   "type": "object",
   "title": "child-sso-federation",
   "description": "Per-tenant values for the child SSO federation chart.",
-  "required": ["baseHost"],
+  "required": [
+    "baseHost"
+  ],
   "additionalProperties": true,
   "properties": {
     "baseHost": {
@@ -11,21 +13,59 @@
       "title": "Child base host",
       "description": "The child external base host <instanceName>.<domain>, e.g. acme.krateo.dev. All hosts + the OIDC issuer derive from it."
     },
-    "namespace": { "type": "string" },
-    "realm": { "type": "string" },
-    "issuer": { "type": "string" },
-    "demoUser": { "type": "string" },
-    "keystoneImage": { "type": "string" },
-    "hosts": { "type": "object", "additionalProperties": true },
-    "openstack": { "type": "object", "additionalProperties": true },
-    "keystone": { "type": "object", "additionalProperties": true },
-    "charts": { "type": "object", "additionalProperties": true },
-    "compositionApiVersions": { "type": "object", "additionalProperties": true },
-    "inCluster": { "type": "object", "additionalProperties": true },
-    "images": { "type": "object", "additionalProperties": true },
-    "bridge": { "type": "object", "additionalProperties": true },
-    "preflight": { "type": "object", "additionalProperties": true },
-    "widget": { "type": "object", "additionalProperties": true },
-    "waitTimeoutSeconds": { "type": "integer" }
+    "namespace": {
+      "type": "string"
+    },
+    "realm": {
+      "type": "string"
+    },
+    "issuer": {
+      "type": "string"
+    },
+    "demoUser": {
+      "type": "string"
+    },
+    "keystoneImage": {
+      "type": "string"
+    },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "openstack": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "keystone": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "charts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "compositionApiVersions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "inCluster": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "widget": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "waitTimeoutSeconds": {
+      "type": "integer"
+    }
   }
 }
