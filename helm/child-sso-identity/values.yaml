@@ -1,0 +1,38 @@
+# child-sso-identity — the tenant's login identity, declared as a KeycloakUser.
+#
+# WHY THIS IS A SEPARATE CHART.
+# The KeycloakUser CRD is created by keycloak-config-kog, several async hops away:
+# CompositionDefinition -> composition -> oasgen RestDefinitions -> RDC -> CRD. Helm
+# validates every manifest before applying any, so shipping the CR from the same
+# release that registers the KOG fails the ENTIRE release with "no matches for kind
+# KeycloakUser ... ensure CRDs are installed first".
+#
+# Guarding it with `lookup` made the install succeed but never delivered the CR:
+# vcluster init-helm renders once (observed: release reached v2, still too early) and
+# does not render again. A COMPOSITION is different — the composition-dynamic-controller
+# re-renders on every reconcile, so it simply retries until the CRD exists and then
+# converges. Same mechanism the openstack umbrella uses to add components as their
+# dependencies become Ready.
+
+# Keycloak realm the user belongs to.
+realm: "krateo"
+# The username. Empty -> nothing is created.
+username: ""
+
+# Secret holding the password. The value is NEVER written into the CR: the controller
+# resolves it at request time via rest-dynamic-controller secretRef, so plaintext stays
+# in the Secret and never appears on the resource or in `kubectl get -o yaml`.
+passwordSecret:
+  name: ""
+  key: "password"
+
+# Bearer token the KOG controller uses to reach the Keycloak Admin API. Same pattern as
+# the realm/client Configurations that realm-apply relies on.
+adminTokenSecret:
+  name: "keycloak-admin-token"
+  key: "token"
+
+# Mark the address verified so the first login is not interrupted by a verify-email
+# screen, which would break the zero-click SSO path.
+emailVerified: true
+enabled: true

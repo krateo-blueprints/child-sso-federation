@@ -1,0 +1,6 @@
+apiVersion: v2
+name: child-sso-identity
+description: The tenant's login identity in Keycloak, as a KeycloakUser CR
+type: application
+version: CHART_VERSION
+appVersion: CHART_VERSION

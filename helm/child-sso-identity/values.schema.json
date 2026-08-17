@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "realm": {
+      "type": "string",
+      "title": "Keycloak realm",
+      "default": "krateo"
+    },
+    "username": {
+      "type": "string",
+      "title": "Username",
+      "default": ""
+    },
+    "enabled": {
+      "type": "boolean",
+      "title": "Enabled",
+      "default": true
+    },
+    "emailVerified": {
+      "type": "boolean",
+      "title": "Email verified",
+      "default": true
+    },
+    "passwordSecret": {
+      "type": "object",
+      "title": "Password secret",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": ""
+        },
+        "key": {
+          "type": "string",
+          "default": "password"
+        }
+      }
+    },
+    "adminTokenSecret": {
+      "type": "object",
+      "title": "Keycloak admin token secret",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "keycloak-admin-token"
+        },
+        "key": {
+          "type": "string",
+          "default": "token"
+        }
+      }
+    }
+  }
+}
