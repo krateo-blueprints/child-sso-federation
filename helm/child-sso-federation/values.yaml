@@ -25,16 +25,17 @@ hosts:
   keystone: ""    # keystone.<baseHost>   — mod_auth_openidc RP + WebSSO callback
   horizon: ""     # horizon.<baseHost>    — trusted_dashboard
   portal: ""      # <baseHost>            — child Krateo portal (authn redirect root)
-  ssoBridge: ""   # sso-bridge.<baseHost> — basic-auth token-bridge
 
 # The mod_auth_openidc-enabled Keystone image (baked at CR creation).
 keystoneImage: "ghcr.io/krateo-blueprints/keystone-oidc:2025.1-ubuntu_jammy"
 
-# The portal (basic-auth) username the token-bridge maps to the demo tenant.
-# Its Keystone user + sso-bridge-<demoUser>.json cred file are provisioned by the
-# bridge-tenant-cred Job. Leave empty to skip bridge tenant-cred provisioning.
-# A matching krateo-auth-basic User is created (07-basic-user.yaml) so the child-portal
-# login identity == the bridge tenant mapping.
+# The tenant's login username. Declared as a KeycloakUser (08-keycloak-user.yaml), so
+# the identity lives in Keycloak and the OIDC federation this chart configures carries it
+# into Keystone and Horizon. Keystone autoprovisions the project and `member` role from
+# the federation mapping on first login. Leave empty to skip creating a tenant identity.
+#
+# There is deliberately no token bridge. Translating a Krateo JWT into a Keystone token
+# required bespoke auth code in a tenant-reachable pod; one KeycloakUser removes the need.
 demoUser: ""
 
 # Password for the demoUser's krateo-auth-basic login. Empty -> a stable random one is
@@ -95,25 +96,15 @@ inCluster:
   keycloakBaseUrl: "http://keycloak-service.krateo-system.svc.cluster.local:8080"
   keystoneAuthUrl: "http://keystone-api.krateo-system.svc.cluster.local:5000/v3"
 
-# Images used by the bootstrap Jobs and the token-bridge.
+# Images used by the bootstrap Jobs.
 images:
   # kubectl + curl + jq — used by every bootstrap Job (wait-loops +
   # idempotent apply + Admin/Keystone API calls). NB: NO openssl (alpine/k8s
   # ships none) — random creds are generated from /dev/urandom.
   tools: "alpine/k8s:1.31.1"
-  # the token-bridge runtime (python3 stdlib; runs the verbatim bridge script).
-  bridge: "quay.io/airshipit/openstack-client:2025.1-ubuntu_jammy"
   # python3 stdlib — runs the Keycloak step-up Admin-API flow-builders (MFA).
   python: "python:3.12-alpine"
   toolsPullPolicy: IfNotPresent
-
-# token-bridge (basic-auth -> Horizon WebSSO). Verifies the caller's Krateo authn
-# JWT LOCALLY (HS256) against the shared jwt-sign-key Secret.
-bridge:
-  enabled: true
-  jwtIssuer: "krateo.io"
-  jwtSignKeySecret: "jwt-sign-key"   # existing shared HS256 secret (READ-ONLY reuse)
-  authCookieName: ""                 # "" = bearer-only
 
 # child-stale-image-cache handling: the installer pins a stale core-provider
 # (2.8.4 → lossy crdgen → broken composition CRDs). preflight PINS the fresh

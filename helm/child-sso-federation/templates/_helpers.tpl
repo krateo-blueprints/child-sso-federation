@@ -34,10 +34,6 @@ helm.sh/chart: child-sso-federation-{{ .Chart.Version }}
 {{- .Values.hosts.portal | default (include "child-sso.baseHost" .) -}}
 {{- end -}}
 
-{{- define "child-sso.host.ssoBridge" -}}
-{{- .Values.hosts.ssoBridge | default (printf "sso-bridge.%s" (include "child-sso.baseHost" .)) -}}
-{{- end -}}
-
 {{/* The OIDC issuer — https URL, byte-identical across all three consumers. */}}
 {{- define "child-sso.issuer" -}}
 {{- .Values.issuer | default (printf "https://%s/realms/%s" (include "child-sso.host.keycloak" .) .Values.realm) -}}
