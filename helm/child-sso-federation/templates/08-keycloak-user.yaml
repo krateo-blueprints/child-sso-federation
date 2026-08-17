@@ -1,0 +1,89 @@
+{{- if .Values.demoUser }}
+{{- $ns := include "child-sso.namespace" . }}
+{{- $user := .Values.demoUser }}
+{{- $secretName := printf "%s-password" $user }}
+{{/* 08 — the tenant's login identity, declared as a KeycloakUser.
+
+     This REPLACES the token bridge. Previously a portal user authenticated against
+     krateo-auth-basic, received a Krateo JWT, and a bespoke Python service verified
+     that JWT and exchanged it for a Keystone token by password grant. Keystone cannot
+     consume a Krateo JWT, so something had to translate — and that translator was
+     236 lines of hand-rolled auth running in a tenant-reachable pod.
+
+     Making the identity a KeycloakUser removes the translation entirely: the user
+     authenticates at Keycloak, and the OIDC federation this chart already configures
+     carries them into Keystone and Horizon. Krateo's own primitives do the work —
+     keycloak-config-kog's KeycloakUser CR, reconciled by its controller.
+
+     The password is NOT written into the CR. `valueSecretRef` makes the controller
+     substitute it from the Secret at request time (RDC secretRef), so the plaintext
+     stays in the Secret and never lands on the resource or in `kubectl get -o yaml`.
+
+     The Secret is lookup-preserved, matching 07-basic-user: reuse the live value if
+     present, otherwise demoUserPassword or a generated one. Byte-stable across
+     re-renders, so a reconcile never silently rotates a working credential. */}}
+{{- $existing := (lookup "v1" "Secret" $ns $secretName) }}
+{{- $pw := "" }}
+{{- if and $existing $existing.data (hasKey $existing.data "password") }}
+{{-   $pw = index $existing.data "password" | b64dec }}
+{{- else }}
+{{-   $pw = .Values.demoUserPassword | default (randAlphaNum 20) }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "child-sso.labels" . | nindent 4 }}
+type: kubernetes.io/basic-auth
+stringData:
+  password: {{ $pw | quote }}
+---
+{{/* The API endpoint + credentials the KOG controller uses to reach Keycloak.
+     Same bearer-token pattern as the realm/client Configurations that realm-apply
+     already relies on (Secret keycloak-admin-token, key token). */}}
+apiVersion: keycloak.ogen.krateo.io/v1alpha1
+kind: KeycloakUserConfiguration
+metadata:
+  name: keycloak-admin
+  namespace: {{ $ns }}
+  labels:
+    {{- include "child-sso.labels" . | nindent 4 }}
+spec:
+  authentication:
+    bearer:
+      tokenRef:
+        name: keycloak-admin-token
+        namespace: {{ $ns }}
+        key: token
+---
+apiVersion: keycloak.ogen.krateo.io/v1
+kind: KeycloakUser
+metadata:
+  name: {{ $user }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "child-sso.labels" . | nindent 4 }}
+spec:
+  configurationRef:
+    name: keycloak-admin
+    namespace: {{ $ns }}
+  realm: {{ .Values.realm | quote }}
+  username: {{ $user | quote }}
+  enabled: true
+  emailVerified: true
+  credentials:
+    - type: password
+      # Not `value:` — the controller resolves this from the Secret at request time.
+      valueSecretRef:
+        name: {{ $secretName }}
+        key: password
+      # Permanent: a temporary credential forces a reset screen on first login, which
+      # breaks the zero-click SSO path this chart exists to demonstrate.
+      temporary: false
+{{/* Deliberately no `groups:`. .Values.adminGroup names a group that this chart never
+     declares — there is no KeycloakGroup CR here and none exists in the realm — so
+     listing it would point the user at something unpublished. If group membership is
+     wanted, declare a KeycloakGroup CR first and reference it then. */}}
+{{- end }}
