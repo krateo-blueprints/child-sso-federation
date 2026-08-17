@@ -74,7 +74,7 @@ spec:
         namespace: %[1]s
         key: token
 ---
-apiVersion: keycloak.ogen.krateo.io/v1alpha1
+apiVersion: keycloak.ogen.krateo.io/v1
 kind: KeycloakRealm
 metadata:
   name: %[2]s
@@ -91,7 +91,7 @@ spec:
   ssoSessionIdleTimeout: 1800
   ssoSessionMaxLifespan: 36000
 ---
-apiVersion: keycloak.ogen.krateo.io/v1alpha1
+apiVersion: keycloak.ogen.krateo.io/v1
 kind: KeycloakClient
 metadata:
   name: krateo-authn
@@ -113,7 +113,7 @@ spec:
   webOrigins:
     - "https://%[3]s"
 ---
-apiVersion: keycloak.ogen.krateo.io/v1alpha1
+apiVersion: keycloak.ogen.krateo.io/v1
 kind: KeycloakClient
 metadata:
   name: keystone
