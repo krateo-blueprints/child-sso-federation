@@ -1,35 +1,34 @@
 {{- if .Values.demoUser }}
-{{/* LOOKUP GUARD (issue #1). The KeycloakUser CRDs are created by
-     keycloak-config-kog, which THIS chart installs — so on a first install they do
-     not exist yet, and Helm validates every manifest before applying any of them.
-     Rendering the CRs unconditionally fails the whole release with "no matches for
-     kind KeycloakUser ... ensure CRDs are installed first", which is exactly why the
-     bootstrap Jobs existed: a Job can wait, a Helm manifest cannot.
-     So render the Secret always, and the CRs only once the CRD is established. The
-     next reconcile of this release picks them up. */}}
 {{- $ns := include "child-sso.namespace" . }}
 {{- $user := .Values.demoUser }}
 {{- $secretName := printf "%s-password" $user }}
-{{/* 08 — the tenant's login identity, declared as a KeycloakUser.
+{{/* 08 — the tenant's login identity.
 
-     This REPLACES the token bridge. Previously a portal user authenticated against
-     krateo-auth-basic, received a Krateo JWT, and a bespoke Python service verified
-     that JWT and exchanged it for a Keystone token by password grant. Keystone cannot
-     consume a Krateo JWT, so something had to translate — and that translator was
-     236 lines of hand-rolled auth running in a tenant-reachable pod.
+     This REPLACES the token bridge. Keystone cannot consume a Krateo authn JWT, so the
+     old design ran 236 lines of hand-rolled auth in a tenant-reachable pod to translate
+     one into a Keystone token. Making the identity a KeycloakUser removes the translation
+     entirely: the user authenticates at Keycloak and the OIDC federation this chart
+     already configures carries them into Keystone and Horizon. Keystone autoprovisions
+     the project and `member` role from the federation mapping on first login.
 
-     Making the identity a KeycloakUser removes the translation entirely: the user
-     authenticates at Keycloak, and the OIDC federation this chart already configures
-     carries them into Keystone and Horizon. Krateo's own primitives do the work —
-     keycloak-config-kog's KeycloakUser CR, reconciled by its controller.
+     THE CR IS NOT RENDERED HERE — deliberately. Its CRD is created by keycloak-config-kog
+     several async hops away (CompositionDefinition -> composition -> oasgen
+     RestDefinitions -> RDC -> CRD), and Helm validates every manifest before applying any,
+     so a CR in this release fails the ENTIRE install with "no matches for kind
+     KeycloakUser ... ensure CRDs are installed first". Guarding it with `lookup` made the
+     install succeed but never delivered the CR: vcluster init-helm renders once (observed
+     live: the release reached revision v2, still before the CRD existed) and never again.
 
-     The password is NOT written into the CR. `valueSecretRef` makes the controller
-     substitute it from the Secret at request time (RDC secretRef), so the plaintext
-     stays in the Secret and never lands on the resource or in `kubectl get -o yaml`.
+     So the identity ships as its own COMPOSITION (child-sso-identity). The
+     composition-dynamic-controller re-renders on every reconcile, so it retries until the
+     CRD exists and then converges — the same mechanism the openstack umbrella uses to add
+     components as their dependencies become Ready.
 
-     The Secret is lookup-preserved, matching 07-basic-user: reuse the live value if
-     present, otherwise demoUserPassword or a generated one. Byte-stable across
-     re-renders, so a reconcile never silently rotates a working credential. */}}
+     What stays here is the password Secret, because it is a core kind with no ordering
+     problem and it must exist before the composition references it. It is
+     lookup-preserved, matching 07-basic-user: reuse the live value if present, otherwise
+     demoUserPassword or a generated one — byte-stable across re-renders, so a reconcile
+     never silently rotates a working credential. */}}
 {{- $existing := (lookup "v1" "Secret" $ns $secretName) }}
 {{- $pw := "" }}
 {{- if and $existing $existing.data (hasKey $existing.data "password") }}
@@ -48,53 +47,26 @@ type: kubernetes.io/basic-auth
 stringData:
   password: {{ $pw | quote }}
 ---
-{{- if (lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" ""
-        "keycloakusers.keycloak.ogen.krateo.io") }}
-{{/* The API endpoint + credentials the KOG controller uses to reach Keycloak.
-     Same bearer-token pattern as the realm/client Configurations that realm-apply
-     already relies on (Secret keycloak-admin-token, key token). */}}
-apiVersion: keycloak.ogen.krateo.io/v1alpha1
-kind: KeycloakUserConfiguration
-metadata:
-  name: keycloak-admin
-  namespace: {{ $ns }}
-  labels:
-    {{- include "child-sso.labels" . | nindent 4 }}
-spec:
-  authentication:
-    bearer:
-      tokenRef:
-        name: keycloak-admin-token
-        namespace: {{ $ns }}
-        key: token
----
-apiVersion: keycloak.ogen.krateo.io/v1
-kind: KeycloakUser
+{{/* The composition that actually creates the KeycloakUser. Its CRD comes from the
+     child-sso-identity CompositionDefinition registered in 00-compositiondefinitions.yaml;
+     core-provider derives the served version from that chart's version, which is why
+     compositionApiVersions.identity is pinned alongside charts.identity.version. */}}
+apiVersion: {{ .Values.compositionApiVersions.identity }}
+kind: ChildSsoIdentity
 metadata:
   name: {{ $user }}
   namespace: {{ $ns }}
   labels:
     {{- include "child-sso.labels" . | nindent 4 }}
 spec:
-  configurationRef:
-    name: keycloak-admin
-    namespace: {{ $ns }}
   realm: {{ .Values.realm | quote }}
   username: {{ $user | quote }}
   enabled: true
   emailVerified: true
-  credentials:
-    - type: password
-      # Not `value:` — the controller resolves this from the Secret at request time.
-      valueSecretRef:
-        name: {{ $secretName }}
-        key: password
-      # Permanent: a temporary credential forces a reset screen on first login, which
-      # breaks the zero-click SSO path this chart exists to demonstrate.
-      temporary: false
-{{/* Deliberately no `groups:`. .Values.adminGroup names a group that this chart never
-     declares — there is no KeycloakGroup CR here and none exists in the realm — so
-     listing it would point the user at something unpublished. If group membership is
-     wanted, declare a KeycloakGroup CR first and reference it then. */}}
-{{- end }}{{/* CRD lookup guard */}}
+  passwordSecret:
+    name: {{ $secretName | quote }}
+    key: password
+  adminTokenSecret:
+    name: keycloak-admin-token
+    key: token
 {{- end }}
