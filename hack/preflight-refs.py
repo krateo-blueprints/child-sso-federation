@@ -202,6 +202,14 @@ def scan(root):
                     host, path, tag = m.group(1), m.group(2), m.group(3)
                     if SKIP.search(m.group(0)) or host.endswith((".krateo.dev", ".svc")):
                         continue
+                    # A web link, not an image. `https://wiki.xen.org/wiki/Bus:Device.Function`
+                    # in an OpenAPI description matches host/path:tag exactly, and these repos
+                    # vendor tens of thousands of lines of upstream specs full of such links.
+                    # No image reference is ever written with a scheme, so this discriminates
+                    # precisely -- unlike skipping prose keys, which would also have to guess
+                    # at block scalars and would start losing real references.
+                    if line[:m.start()].rstrip().endswith("//"):
+                        continue
                     if "/" not in path and host.count(".") < 1:
                         continue
                     images.add((host, path, tag, rel, i + 1))
