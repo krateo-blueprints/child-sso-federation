@@ -44,23 +44,3 @@ spec:
   chart:
     url: {{ .Values.charts.keystoneKog.url | quote }}
     version: {{ .Values.charts.keystoneKog.version | quote }}
----
-{{/* The tenant identity ships as its OWN composition, not as manifests in this release.
-     The KeycloakUser CRD is created by keycloak-config-kog several async hops away
-     (CompositionDefinition -> composition -> oasgen RestDefinitions -> RDC -> CRD), and
-     Helm validates every manifest before applying any — so a CR in THIS release fails the
-     whole install. A composition is re-rendered by the composition-dynamic-controller on
-     every reconcile, so it simply retries until the CRD exists, then converges. */}}
-apiVersion: core.krateo.io/v1alpha1
-kind: CompositionDefinition
-metadata:
-  name: child-sso-identity
-  namespace: {{ include "child-sso.namespace" . }}
-  labels:
-    {{- include "child-sso.labels" . | nindent 4 }}
-  annotations:
-    krateo.io/connector-verbose: "true"
-spec:
-  chart:
-    url: {{ .Values.charts.identity.url | quote }}
-    version: {{ .Values.charts.identity.version | quote }}
