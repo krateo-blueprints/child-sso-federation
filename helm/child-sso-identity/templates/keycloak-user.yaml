@@ -1,4 +1,19 @@
-{{- if and .Values.username .Values.passwordSecret.name }}
+{{- if .Values.username }}
+{{/* The tenant identity, with BOTH credentials declared in one CR.
+
+     This is the layout keycloak-config-kog's rd-user.yaml is built for — a fixed
+     two-credential order, [0] password and [1] OTP — and declaring both together is not
+     cosmetic. A Keycloak PUT /users/{id} with `credentials:[...]` REPLACES the entire
+     credential array, so any component that enrols OTP separately WIPES the password.
+     That is exactly what happened when an imperative bootstrap Job owned the OTP while
+     this CR owned the password: the Job won, and the password Secret this chart wrote
+     became a lie that failed every login.
+
+     Declaring both here makes the CR the single owner of the user's credentials.
+
+     Neither secret value is written into the CR: valueSecretRef / secretDataSecretRef
+     make the controller substitute them at request time, so plaintext never lands on the
+     resource. */}}
 apiVersion: keycloak.ogen.krateo.io/v1alpha1
 kind: KeycloakUserConfiguration
 metadata:
@@ -25,13 +40,23 @@ spec:
   username: {{ .Values.username | quote }}
   enabled: {{ .Values.enabled }}
   emailVerified: {{ .Values.emailVerified }}
+  {{/* Explicitly empty: a pending CONFIGURE_TOTP or UPDATE_PASSWORD required action
+       blocks direct login and breaks the zero-click SSO path. */}}
+  requiredActions: []
   credentials:
     - type: password
-      # Not `value:` — resolved from the Secret by the controller at request time.
       valueSecretRef:
         name: {{ .Values.passwordSecret.name | quote }}
         key: {{ .Values.passwordSecret.key | quote }}
-      # Permanent: a temporary credential forces a reset screen on first login, which
-      # breaks the zero-click SSO path this stack exists to demonstrate.
       temporary: false
+    {{- if .Values.otpSecret.name }}
+    - type: otp
+      userLabel: {{ .Values.otpSecret.userLabel | quote }}
+      {{/* secretData is a JSON document ({"value":"<seed>"}), not the bare seed — so the
+           referenced Secret key must hold that JSON, not the raw TOTP secret. */}}
+      secretDataSecretRef:
+        name: {{ .Values.otpSecret.name | quote }}
+        key: {{ .Values.otpSecret.key | quote }}
+      credentialData: {{ .Values.otpSecret.credentialData | quote }}
+    {{- end }}
 {{- end }}
