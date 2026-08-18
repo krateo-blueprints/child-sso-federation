@@ -117,6 +117,55 @@ def pair_version(lines, idx):
     return None
 
 
+REPO_LINE = re.compile(r'^\s*repository:\s*["\']?([a-zA-Z0-9][a-zA-Z0-9._/-]*)["\']?\s*(?:#.*)?$')
+TAG_LINE = re.compile(r'^\s*tag:\s*["\']?([a-zA-Z0-9][a-zA-Z0-9._-]*)["\']?\s*(?:#.*)?$')
+REG_LINE = re.compile(r'^\s*registry:\s*["\']?([a-zA-Z0-9._-]*)["\']?\s*(?:#.*)?$')
+
+
+def split_image(lines, idx):
+    """Pair a `repository:` line with its neighbouring `tag:` (and optional `registry:`).
+
+    This is the DOMINANT way Helm charts declare images:
+
+        image:
+          repository: ghcr.io/org/name
+          tag: "1.2.3"
+
+    The single-line matcher never sees these, which is not a corner case — it is most
+    charts. It cost a real miss: nutanix-v4-proxy referenced
+    ghcr.io/krateo-blueprints/nutanix-v4-proxy, an image that does not exist, and the
+    check reported "all references resolve" because it found nothing to check.
+    """
+    m = REPO_LINE.match(lines[idx])
+    if not m:
+        return None
+    repo = m.group(1)
+    if repo.startswith("oci://") or SKIP.search(lines[idx]):
+        return None            # chart dependency, handled by the OCI matcher
+    tag = registry = None
+    for off in (1, 2, 3, -1, -2, -3, 4, -4):
+        j = idx + off
+        if not (0 <= j < len(lines)):
+            continue
+        if tag is None:
+            t = TAG_LINE.match(lines[j])
+            if t and not SKIP.search(t.group(1)):
+                tag = t.group(1)
+        if registry is None:
+            r = REG_LINE.match(lines[j])
+            if r is not None:
+                registry = r.group(1)
+    if not tag:
+        return None                     # no resolvable tag -> cannot check, skip
+    if registry:
+        host, path = registry, repo
+    elif "/" in repo and "." in repo.split("/")[0]:
+        host, path = repo.split("/", 1)  # repository already carries the host
+    else:
+        host, path = "docker.io", repo   # bare name -> Docker Hub (library/ added later)
+    return host, path, tag
+
+
 def scan(root):
     charts, images = set(), set()
     for dirpath, dirnames, filenames in os.walk(root):
@@ -146,6 +195,9 @@ def scan(root):
                             continue  # repo root with no resolvable chart name — not a ref
                     if ver:
                         charts.add((host, path, ver, rel, i + 1))
+                sp = split_image(lines, i)
+                if sp:
+                    images.add((sp[0], sp[1], sp[2], rel, i + 1))
                 for m in IMG.finditer(line):
                     host, path, tag = m.group(1), m.group(2), m.group(3)
                     if SKIP.search(m.group(0)) or host.endswith((".krateo.dev", ".svc")):
