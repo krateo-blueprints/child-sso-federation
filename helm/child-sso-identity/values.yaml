@@ -26,6 +26,20 @@ passwordSecret:
   name: ""
   key: "password"
 
+# The OTP (TOTP) credential, enrolled declaratively alongside the password so the two are
+# written in ONE request. Keycloak replaces the whole credential array on write, so a
+# separate OTP enrolment would wipe the password.
+#
+# `key` must reference a Secret entry holding the JSON document Keycloak expects for
+# secretData — {"value":"<seed>"} — NOT the bare seed.
+# Empty name -> password only, no OTP.
+otpSecret:
+  name: ""
+  key: "TOTP_SECRET_DATA"
+  userLabel: "stepup-totp"
+  # Must match how the seed is used when generating codes: raw secret, HmacSHA1, 6 digits, 30s.
+  credentialData: '{"subType":"totp","digits":6,"period":30,"algorithm":"HmacSHA1"}'
+
 # Bearer token the KOG controller uses to reach the Keycloak Admin API. Same pattern as
 # the realm/client Configurations that realm-apply relies on.
 adminTokenSecret:
