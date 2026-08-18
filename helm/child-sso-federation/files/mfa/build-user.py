@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, os, urllib.request, urllib.error
 BASE=os.environ["KC_BASE"].rstrip("/"); REALM=os.environ.get("REALM","krateo")
-TOKEN=os.environ["ADMIN_TOKEN"]; PW=os.environ["KC_PASS"]; TOTP=os.environ["TOTP_SECRET"]
+TOKEN=os.environ["ADMIN_TOKEN"]
 USER=os.environ.get("KC_USER","braghettos"); GROUP=os.environ.get("GROUP_NAME","braghettos-admin")
 R=f"{BASE}/admin/realms/{REALM}"; H={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"}
 def call(m,p,b=None):
@@ -35,27 +35,14 @@ if not uid:
     uid=loc.rstrip("/").split("/")[-1]
 print("user id:",uid)
 
-# --- OTP credential FIRST (raw secret, HmacSHA1/6/30 to match totp.py).
-#     0.1.2 fix: a PUT /users/{id} with `credentials:[...]` REPLACES the whole credential
-#     array, so enrolling OTP this way WIPES any password. Do OTP first, then set the
-#     password via the dedicated reset-password endpoint (which ADDS a password without
-#     touching OTP) LAST — so both survive and unattended login works. Also clear
-#     requiredActions so no pending CONFIGURE_TOTP/UPDATE_PASSWORD blocks direct login. ---
-cred={"type":"otp","userLabel":"stepup-totp",
-      "secretData":json.dumps({"value":TOTP}),
-      "credentialData":json.dumps({"subType":"totp","digits":6,"period":30,"algorithm":"HmacSHA1"})}
-# clear any existing otp first
-s,creds,_=call("GET",f"/users/{uid}/credentials")
-if isinstance(creds,list):
-    for c in creds:
-        if c["type"]=="otp": call("DELETE",f"/users/{uid}/credentials/{c['id']}")
-s,b,_=call("PUT",f"/users/{uid}",{"credentials":[cred],"requiredActions":[]})
-print(f"enrol OTP -> {s}")
-
-# --- password LAST (authoritative from KC_PASS; reset-password ADDS a password
-#     credential without removing the OTP) ---
-s,b,_=call("PUT",f"/users/{uid}/reset-password",{"type":"password","value":PW,"temporary":False})
-print(f"set password -> {s}")
+# --- credentials are NOT set here ---
+# The KeycloakUser CR (child-sso-identity) owns BOTH the password and the OTP and writes
+# them in a single request. That matters: a PUT /users/{id} with `credentials:[...]`
+# REPLACES the whole credential array, so any second writer silently wipes the other's
+# credential. When this script owned the OTP and the CR owned the password, this script
+# ran last and won — leaving the CR's password Secret a lie that failed every login.
+# This script now only ensures the user and group exist (it runs BEFORE the identity
+# chart, so the CR has something to adopt).
 
 # --- group membership ---
 s,b,_=call("PUT",f"/users/{uid}/groups/{gid}")
