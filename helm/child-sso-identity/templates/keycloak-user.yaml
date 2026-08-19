@@ -43,6 +43,13 @@ spec:
   {{/* Explicitly empty: a pending CONFIGURE_TOTP or UPDATE_PASSWORD required action
        blocks direct login and breaks the zero-click SSO path. */}}
   requiredActions: []
+{{- if .Values.credentialsOwnedByCR }}
+  {{/* Rendered ONLY when this CR owns the credentials. It does not today: the KOG silently
+       ignores credentials[] (keycloak-operator-kog#15), and 0.1.19 shipped this block as the
+       sole owner, which produced a user with no password and no OTP. Declaring it while the
+       bootstrap Job also writes would be worse than useless -- this chart applies AFTER the
+       Job, and Keycloak replaces the whole credential array on write, so it would undo a
+       working credential. Flip credentialsOwnedByCR once the KOG applies the field. */}}
   credentials:
     - type: password
       valueSecretRef:
@@ -59,4 +66,5 @@ spec:
         key: {{ .Values.otpSecret.key | quote }}
       credentialData: {{ .Values.otpSecret.credentialData | quote }}
     {{- end }}
+{{- end }}
 {{- end }}
