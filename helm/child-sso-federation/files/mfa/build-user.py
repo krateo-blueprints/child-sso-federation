@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, os, urllib.request, urllib.error
 BASE=os.environ["KC_BASE"].rstrip("/"); REALM=os.environ.get("REALM","krateo")
-TOKEN=os.environ["ADMIN_TOKEN"]
+TOKEN=os.environ["ADMIN_TOKEN"]; PW=os.environ["KC_PASS"]; TOTP=os.environ["TOTP_SECRET"]
 USER=os.environ.get("KC_USER","braghettos"); GROUP=os.environ.get("GROUP_NAME","braghettos-admin")
 R=f"{BASE}/admin/realms/{REALM}"; H={"Authorization":f"Bearer {TOKEN}","Content-Type":"application/json"}
 def call(m,p,b=None):
@@ -35,14 +35,35 @@ if not uid:
     uid=loc.rstrip("/").split("/")[-1]
 print("user id:",uid)
 
-# --- credentials are NOT set here ---
-# The KeycloakUser CR (child-sso-identity) owns BOTH the password and the OTP and writes
-# them in a single request. That matters: a PUT /users/{id} with `credentials:[...]`
-# REPLACES the whole credential array, so any second writer silently wipes the other's
-# credential. When this script owned the OTP and the CR owned the password, this script
-# ran last and won — leaving the CR's password Secret a lie that failed every login.
-# This script now only ensures the user and group exist (it runs BEFORE the identity
-# chart, so the CR has something to adopt).
+# --- this script is the SINGLE owner of the tenant's credentials ---
+#
+# 0.1.19 handed ownership to the KeycloakUser CR (child-sso-identity) on the premise that
+# the CR would write both credentials in one request. That premise is false: the KOG
+# silently ignores `credentials[]` entirely (keycloak-operator-kog#15, still open), so the
+# user was created with NO password and NO OTP and every login failed. Ownership is back
+# here until that issue is fixed, because this is the writer that demonstrably works.
+#
+# The one-writer rule still holds and still matters: a PUT /users/{id} carrying
+# `credentials:[...]` REPLACES the entire credential array, so two writers wipe each other.
+# child-sso-identity therefore declares its credential block only when
+# `credentialsOwnedByCR=true`, which stays false until the KOG applies it.
+#
+# Order is load-bearing: OTP FIRST via PUT (which replaces the array), then the password via
+# /reset-password, which ADDS a password credential WITHOUT touching the OTP. Reversing these
+# two silently drops the OTP. requiredActions is cleared so no pending CONFIGURE_TOTP or
+# UPDATE_PASSWORD screen blocks the unattended login path.
+cred={"type":"otp","userLabel":"stepup-totp",
+      "secretData":json.dumps({"value":TOTP}),
+      "credentialData":json.dumps({"subType":"totp","digits":6,"period":30,"algorithm":"HmacSHA1"})}
+s,creds,_=call("GET",f"/users/{uid}/credentials")
+if isinstance(creds,list):
+    for c in creds:
+        if c["type"]=="otp": call("DELETE",f"/users/{uid}/credentials/{c['id']}")
+s,b,_=call("PUT",f"/users/{uid}",{"credentials":[cred],"requiredActions":[]})
+print(f"enrol OTP -> {s}")
+
+s,b,_=call("PUT",f"/users/{uid}/reset-password",{"type":"password","value":PW,"temporary":False})
+print(f"set password -> {s}")
 
 # --- group membership ---
 s,b,_=call("PUT",f"/users/{uid}/groups/{gid}")
