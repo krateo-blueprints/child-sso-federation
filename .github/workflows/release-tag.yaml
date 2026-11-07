@@ -112,6 +112,64 @@ jobs:
       - name: Package and push
         run: |
           set -euo pipefail
+          # Refuse here, before GHCR holds the version, every archive the Marketplace index's publisher
+          # would refuse after it (PUBLISHING.md rules 2 and 3): the same checks, on the same archive.
+          # helm package exits 0 whether or not a file made it into the chart, so the archive is what is
+          # checked. Listings are read once and matched with here-strings: `tar | grep -q` under
+          # pipefail fails on SIGPIPE when grep matches early.
+          gate() {
+            local name="$1" tgz="$2" channel="$3" members chart_yaml chart_ver src want kind f
+            local cd_yaml cd_url cd_ver
+            members="$(tar tzf "$tgz")"
+            chart_yaml="$(tar -xzOf "$tgz" "${name}/Chart.yaml")"
+            chart_ver="$(yq -r '.version' <<< "$chart_yaml")"
+            src="https://github.com/${GITHUB_REPOSITORY}"
+            if ! yq -e ".sources // [] | .[] | select(. == \"${src}\")" <<< "$chart_yaml" >/dev/null 2>&1; then
+              echo "::error::${name}: Chart.yaml sources: must list ${src}, the repository that builds it"
+              return 1
+            fi
+            if [ "$channel" != operators ]; then
+              for f in values.schema.json compositiondefinition.yaml; do
+                if ! grep -qxF "${name}/${f}" <<< "$members"; then
+                  echo "::error::$(basename "$tgz") lacks ${name}/${f}"
+                  return 1
+                fi
+              done
+            fi
+            want=operators
+            if grep -qxF "${name}/values.schema.json" <<< "$members" \
+               && grep -qxF "${name}/compositiondefinition.yaml" <<< "$members"; then
+              kind="$(yq -r '.annotations."krateo.io/kind" // ""' <<< "$chart_yaml")"
+              if [ "$kind" = page-set ]; then want=pages; else want=blueprints; fi
+            fi
+            if [ "$want" != "$channel" ]; then
+              echo "::error::${name}: its archive belongs in ${want}, not ${channel} (PUBLISHING.md rule 2)"
+              return 1
+            fi
+            if [ "$channel" = operators ]; then
+              return 0
+            fi
+            cd_yaml="$(tar -xzOf "$tgz" "${name}/compositiondefinition.yaml")"
+            cd_url="$(yq -r 'select(.kind == "CompositionDefinition") | .spec.chart.url' <<< "$cd_yaml")"
+            cd_ver="$(yq -r 'select(.kind == "CompositionDefinition") | .spec.chart.version' <<< "$cd_yaml")"
+            if [ "$cd_url" != "oci://ghcr.io/krateo-blueprints/charts/${name}" ]; then
+              echo "::error::${name}: its CompositionDefinition installs '${cd_url}', not oci://ghcr.io/krateo-blueprints/charts/${name}"
+              return 1
+            fi
+            if [ "$cd_ver" != "$chart_ver" ]; then
+              echo "::error::${name} ${chart_ver}: its CompositionDefinition installs version '${cd_ver}' (PUBLISHING.md rule 4)"
+              return 1
+            fi
+            case "$(yq -r '.icon // ""' <<< "$chart_yaml")" in
+              https://*) : ;;
+              *) echo "::error::${name}: Chart.yaml icon must be an absolute https URL"; return 1 ;;
+            esac
+            if [ "$(yq -r '(.keywords // []) | length' <<< "$chart_yaml")" -eq 0 ]; then
+              echo "::error::${name}: Chart.yaml needs keywords, the Marketplace's tags"
+              return 1
+            fi
+          }
+
           mkdir -p charts-dist
           while read -r dir; do
             [ -z "$dir" ] && continue
@@ -126,11 +184,17 @@ jobs:
             sed -i "s/CHART_VERSION/${VERSION}/g" "$cf"
             helm dependency build "$dir" 2>/dev/null || helm dependency update "$dir" 2>/dev/null || true
             helm package "$dir" --version "${VERSION}" --destination /tmp/pkg
-            helm push "/tmp/pkg/${name}-${VERSION}.tgz" "${OCI_REPO}"
-            echo "pushed ${name}:${VERSION}"
-            # The same bytes that went to GHCR, for the index.
+            # Both charts here are operators (see the header); the gate refuses one that is not.
+            gate "$name" "/tmp/pkg/${name}-${VERSION}.tgz" operators || exit 1
             cp "/tmp/pkg/${name}-${VERSION}.tgz" charts-dist/
           done < /tmp/charts.txt
+
+          # Push only once every selected chart has passed the gate, so a refusal can't leave
+          # GHCR holding some of this tag's charts and not others. The same bytes go to the index.
+          for tgz in charts-dist/*.tgz; do
+            helm push "$tgz" "${OCI_REPO}"
+            echo "pushed $(basename "$tgz" .tgz)"
+          done
 
       - name: Hand the tarballs to the index job
         uses: actions/upload-artifact@v4
@@ -170,7 +234,8 @@ jobs:
   # served index and installs each chart anonymously before it succeeds.
   publish-index:
     needs: release
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1
+    # To be replaced by the 1.0.0 commit SHA once tagged (PUBLISHING.md rule 9).
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@1.0.0
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}
