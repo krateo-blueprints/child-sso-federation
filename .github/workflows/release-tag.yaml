@@ -78,6 +78,16 @@ jobs:
             echo "::error::Marketplace index and the Marketplace would keep installing an old version."
             exit 1
           fi
+          # A token with whitespace or a control character (usually a trailing newline from piping
+          # into `gh secret set`) passes the API, which trims it, and then breaks git in the
+          # publisher, after GHCR already holds this version (PUBLISHING.md rule 7). Refuse it
+          # here. The token itself is never printed.
+          case "${CHARTS_PUBLISH_TOKEN}" in
+            *[[:space:]]*|*[[:cntrl:]]*)
+              echo "::error::secret CHARTS_PUBLISH_TOKEN contains whitespace or a control character, usually a trailing newline."
+              echo "::error::Re-save it by pasting the token at the prompt of 'gh secret set CHARTS_PUBLISH_TOKEN --org krateo-blueprints --visibility all' (not piped from echo)."
+              exit 1 ;;
+          esac
 
       - uses: azure/setup-helm@v4
 
@@ -261,7 +271,7 @@ jobs:
   publish-index:
     needs: release
     # Pinned by full commit SHA (PUBLISHING.md rule 9); Dependabot proposes upgrades.
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@a2d63ba50e138b17f678528d6d6be3afef48715a # 1.0.0
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@36ea357cb0fe4b49628cc984d9939babf0049d03 # 1.0.1
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}
