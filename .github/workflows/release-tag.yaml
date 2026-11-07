@@ -30,6 +30,7 @@ on:
 permissions:
   contents: read
   packages: write
+  actions: read # the lint-run check reads this repository's workflow runs
 
 jobs:
   release:
@@ -38,6 +39,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0          # need history to diff against the previous tag
+
+      # Refuse to release a commit no lint run ever passed on (PUBLISHING.md rule 10). A quiet
+      # check list reads as success, so the never-triggered case is made loud here, the last point
+      # before the charts are published. This asserts only what it can see: that THIS commit has a
+      # concluded, successful run of lint.yaml. lint.yaml runs on pushes to main, so a merged
+      # commit has one; a squash merge's history does not record what ran on the branch.
+      - name: The commit being released must have passed lint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          runs_url="repos/${GITHUB_REPOSITORY}/actions/workflows/lint.yaml/runs?head_sha=${SHA}&per_page=100"
+          runs="$(gh api "$runs_url" --jq '[.workflow_runs[] | select(.status == "completed")] | length')"
+          ok="$(gh api "$runs_url" --jq '[.workflow_runs[] | select(.conclusion == "success")] | length')"
+          echo "lint runs on ${SHA}: ${runs} completed, ${ok} successful"
+          if [ "$runs" -eq 0 ]; then
+            echo "::error::No completed lint run exists for ${SHA}. This is the never-triggered case, not"
+            echo "::error::a pending one. Dispatch lint.yaml on this commit, confirm it passes, then re-tag."
+            exit 1
+          fi
+          if [ "$ok" -eq 0 ]; then
+            echo "::error::lint ran on ${SHA} but never succeeded. Refusing to publish."
+            exit 1
+          fi
 
       # The Marketplace installs what the helm index at krateo-blueprints/charts lists, not what
       # GHCR holds, and the publish-index job below needs this secret to get there. Refuse here,
