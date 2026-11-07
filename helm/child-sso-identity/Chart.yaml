@@ -4,3 +4,10 @@ description: The tenant's login identity in Keycloak, as a KeycloakUser CR
 type: application
 version: CHART_VERSION
 appVersion: CHART_VERSION
+home: https://github.com/krateo-blueprints/child-sso-federation
+icon: https://raw.githubusercontent.com/krateoplatformops/krateo/main/docs/media/logo.svg
+keywords:
+  - krateo
+  - sso
+  - keycloak
+  - identity
