@@ -154,13 +154,17 @@ jobs:
           # checked. Listings are read once and matched with here-strings: `tar | grep -q` under
           # pipefail fails on SIGPIPE when grep matches early.
           gate() {
-            local name="$1" tgz="$2" channel="$3" members chart_yaml chart_ver src want kind f
+            local name="$1" tgz="$2" channel="$3" members chart_yaml chart_ver src src_lc listed want kind f
             local cd_yaml cd_url cd_ver
             members="$(tar tzf "$tgz")"
             chart_yaml="$(tar -xzOf "$tgz" "${name}/Chart.yaml")"
             chart_ver="$(yq -r '.version' <<< "$chart_yaml")"
             src="https://github.com/${GITHUB_REPOSITORY}"
-            if ! yq -e ".sources // [] | .[] | select(. == \"${src}\")" <<< "$chart_yaml" >/dev/null 2>&1; then
+            # Owner and repository names are case-insensitive on GitHub, so compare lower-cased and
+            # ignore a trailing slash, exactly as the publisher does (publish-chart.yaml 1.0.3).
+            src_lc="$(tr '[:upper:]' '[:lower:]' <<< "$src")"
+            listed="$(yq -r '.sources // [] | .[]' <<< "$chart_yaml" | tr '[:upper:]' '[:lower:]' | sed 's#/*$##')"
+            if ! grep -qxF "$src_lc" <<< "$listed"; then
               echo "::error::${name}: Chart.yaml sources: must list ${src}, the repository that builds it"
               return 1
             fi
@@ -271,7 +275,7 @@ jobs:
   publish-index:
     needs: release
     # Pinned by full commit SHA (PUBLISHING.md rule 9); Dependabot proposes upgrades.
-    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@f0138e816ce827279ad087202889c009899741f7 # 1.0.2
+    uses: krateo-blueprints/charts/.github/workflows/publish-chart.yaml@ae5e19976a126abf5fb99c14c78180885ef3c97b # 1.0.3
     with:
       source_repo: ${{ github.repository }}
       git_tag: ${{ github.ref_name }}
