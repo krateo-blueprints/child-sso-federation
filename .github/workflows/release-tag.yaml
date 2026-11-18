@@ -90,7 +90,19 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" \
             | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
 
+      # krateo-blueprints/charts PUBLISHING.md rule 14: charts are pushed through the organisation's chart-push
+      # action, whose push.sh retries GHCR's tag read-after-write race (and only that) onto the same digest. Locate
+      # mode: it outputs push.sh's path, and the next step runs it once per chart.
+      - name: Locate the shared chart push
+        id: chart-push
+        uses: krateo-platformops/.github/.github/actions/chart-push@653ac1e67d761584993a774c76963514968b3650 # main 2026-11-18
+
       - name: Package and push
+        env:
+          CHART_PUSH: ${{ steps.chart-push.outputs.path }}
+          # push.sh reads the manifest back with these, after the registry login above.
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ github.token }}
         run: |
           set -euo pipefail
           while read -r dir; do
@@ -106,7 +118,7 @@ jobs:
             sed -i "s/CHART_VERSION/${VERSION}/g" "$cf"
             helm dependency build "$dir" 2>/dev/null || helm dependency update "$dir" 2>/dev/null || true
             helm package "$dir" --version "${VERSION}" --destination /tmp/pkg
-            helm push "/tmp/pkg/${name}-${VERSION}.tgz" "${OCI_REPO}"
+            bash "${CHART_PUSH}" "/tmp/pkg/${name}-${VERSION}.tgz" "${OCI_REPO}"
             echo "pushed ${name}:${VERSION}"
           done < /tmp/charts.txt
 
