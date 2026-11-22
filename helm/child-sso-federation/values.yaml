@@ -45,6 +45,11 @@ demoUserPassword: ""
 
 openstack:
   profile: identity      # identity = MariaDB+Memcached+Keystone+Glance+Horizon
+  # The tunnel NIC MTU of the nodes the child's OpenStack runs on, set as the Openstack CR's
+  # network.underlayMTU. openstack 0.3.74 refuses to start neutron's OVS agent when the node MTU is
+  # below it, and its own default is 1500. GKE nodes are 1460, so that is the default here; set the
+  # host's real value on any other platform.
+  underlayMTU: 1460
   domain: keycloak       # federation domain (NB: "federated" is reserved by Keystone)
   demoProject: demo      # JIT auto-provisioned project
 

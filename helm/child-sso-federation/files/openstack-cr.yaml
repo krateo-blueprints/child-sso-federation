@@ -9,6 +9,10 @@ metadata:
   namespace: __NAMESPACE__
 spec:
   profile: __PROFILE__
+  # The host nodes' tunnel NIC MTU (values: openstack.underlayMTU). 0.3.74 refuses to start neutron's OVS
+  # agent when the node MTU is below network.underlayMTU, whose own default is 1500.
+  network:
+    underlayMTU: __UNDERLAY_MTU__
   componentValues:
     keystone:
       # mod_auth_openidc's client secret and crypto passphrase come from the two generated

@@ -7,6 +7,7 @@
 {{- $cr = $cr | replace "__APIVERSION__" .Values.compositionApiVersions.openstack }}
 {{- $cr = $cr | replace "__NAMESPACE__" $ns }}
 {{- $cr = $cr | replace "__PROFILE__" .Values.openstack.profile }}
+{{- $cr = $cr | replace "__UNDERLAY_MTU__" (toString (int .Values.openstack.underlayMTU)) }}
 {{- $cr = $cr | replace "__KEYSTONE_IMAGE__" .Values.keystoneImage }}
 {{- $cr = $cr | replace "__REALM__" .Values.realm }}
 {{- $cr = $cr | replace "__KEYCLOAK_HOST__" $keycloak }}
