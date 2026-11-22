@@ -11,6 +11,17 @@ spec:
   profile: __PROFILE__
   componentValues:
     keystone:
+      # mod_auth_openidc's client secret and crypto passphrase come from the two generated
+      # Secrets in this namespace (05-secrets-generated.yaml), never from the CR: anyone who can
+      # read the CR could read them, and the keystone chart refuses those directives in its
+      # Apache config. It renders OIDCClientSecret / OIDCCryptoPassphrase itself, from env.
+      oidc:
+        clientSecretRef:
+          name: keystone-oidc-client
+          key: KEYSTONE_CLIENT_SECRET
+        cryptoPassphraseRef:
+          name: keystone-oidc-crypto
+          key: OIDC_CRYPTO_PASSPHRASE
       images:
         tags:
           keystone_api: __KEYSTONE_IMAGE__
@@ -43,8 +54,6 @@ spec:
           OIDCScope "openid email profile"
           OIDCProviderMetadataURL https://__KEYCLOAK_HOST__/realms/__REALM__/.well-known/openid-configuration
           OIDCClientID keystone
-          OIDCClientSecret __KEYSTONE_CLIENT_SECRET__
-          OIDCCryptoPassphrase __OIDC_CRYPTO_PASSPHRASE__
           OIDCRedirectURI https://__KEYSTONE_HOST__/v3/auth/OS-FEDERATION/identity_providers/keycloak/protocols/openid/redirect_uri
           <VirtualHost *:{{ $portInt }}>
             WSGIDaemonProcess keystone-public processes=1 threads=1 user=keystone group=keystone display-name=%{GROUP}
