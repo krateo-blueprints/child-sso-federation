@@ -32,6 +32,14 @@ to **private** — flip it to public once.
 `selfservice-krateo` (oci://ghcr.io/braghettos/charts/selfservice-krateo) references this chart
 in its Vcluster CR init-helm list when `childKrateo.ssoFederation.enabled`.
 
+## Known issue: GKE resizes the control plane during a first install
+GKE can resize a new cluster's control plane unrequested, about 30 minutes after it is created. If that
+happens mid-install, a component's composition controller can lose its lease and report
+`HooksMayNotHaveRun`, and its release stays wedged. The recovery documented by openstack-as-a-service
+0.3.74 is to set `rerunHooks.<component>: "<timestamp>"` on the child's `Openstack` spec, which runs that
+component's hooks again. Whether core-provider recovers this by itself is an open question to its
+owners. Until it does, check a child's components for `HooksMayNotHaveRun` after its first install.
+
 ## Known follow-ups
 - Declarative MFA: replace the imperative `55-job-mfa-bootstrap` + `files/mfa/build-*.py` with
   `keycloak.ogen.krateo.io` CRs once the KOG RestDefinition gaps close
