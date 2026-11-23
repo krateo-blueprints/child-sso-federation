@@ -43,8 +43,13 @@ and installed again, at most 3 times, then it falls back to the human gate. The 
 `krateo.io/interrupted-install-recovery` turns this off for a chart whose install hooks can't safely
 repeat. A child on an older core-provider still needs the manual recovery above.
 
-That recovery has core-provider's own tests only: the fresh install of openstack 0.3.74 on 2.13.128 passed,
-but GKE did not resize during it, so the path did not run. What triggers the resize isn't established.
+That recovery has run on openstack 0.3.74 on GKE (krateo-openstack-blueprint README, commit 35291668):
+two components whose controller was killed during their first install were each reinstalled once, with
+all hooks, to Ready; a component killed during an upgrade was not reinstalled, by design. A reinstall
+replaces the first install's volume claims, so anything already written to them is lost. What makes GKE
+resize a control plane isn't established. Children are profile identity with OIDC federation, which no
+openstack run has covered.
+
 Keep the manual recovery at hand on any version.
 
 ## Known follow-ups
