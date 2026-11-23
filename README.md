@@ -43,6 +43,10 @@ and installed again, at most 3 times, then it falls back to the human gate. The 
 `krateo.io/interrupted-install-recovery` turns this off for a chart whose install hooks can't safely
 repeat. A child on an older core-provider still needs the manual recovery above.
 
+That recovery has core-provider's own tests only: the fresh install of openstack 0.3.74 on 2.13.128 passed,
+but GKE did not resize during it, so the path did not run. What triggers the resize isn't established.
+Keep the manual recovery at hand on any version.
+
 ## Known follow-ups
 - Declarative MFA: replace the imperative `55-job-mfa-bootstrap` + `files/mfa/build-*.py` with
   `keycloak.ogen.krateo.io` CRs once the KOG RestDefinition gaps close
