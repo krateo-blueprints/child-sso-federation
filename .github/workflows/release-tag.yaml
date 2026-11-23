@@ -48,6 +48,8 @@ jobs:
           fetch-depth: 0          # need history to diff against the previous tag
 
       - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
 
       - name: Resolve version and registry
         run: |

@@ -18,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
       - name: helm lint (with CHART_VERSION resolved to a dummy semver)
         run: |
           set -euo pipefail
