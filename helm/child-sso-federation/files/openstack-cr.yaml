@@ -50,7 +50,6 @@ spec:
           Listen 0.0.0.0:{{ $portInt }}
           ErrorLog /dev/stdout
           CustomLog /dev/stdout combined
-          LoadModule auth_openidc_module /usr/lib/apache2/modules/mod_auth_openidc.so
           OIDCClaimPrefix "OIDC-"
           OIDCClaimDelimiter ";"
           OIDCXForwardedHeaders "X-Forwarded-Proto"
