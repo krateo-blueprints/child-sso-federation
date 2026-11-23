@@ -34,7 +34,15 @@
     },
     "openstack": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": true,
+      "properties": {
+        "underlayMTU": {
+          "type": "integer",
+          "minimum": 1280,
+          "maximum": 9216,
+          "description": "Tunnel NIC MTU of the host nodes, set as the Openstack CR's network.underlayMTU (GKE: 1460)."
+        }
+      }
     },
     "keystone": {
       "type": "object",

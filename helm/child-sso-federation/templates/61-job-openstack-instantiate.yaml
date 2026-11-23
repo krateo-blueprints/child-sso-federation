@@ -3,23 +3,20 @@
 {{- $keycloak := include "child-sso.host.keycloak" . }}
 {{- $keystone := include "child-sso.host.keystone" . }}
 {{- $horizon := include "child-sso.host.horizon" . }}
-{{- $ksSecret := include "child-sso.keystoneClientSecret" . }}
-{{- $crypto := include "child-sso.oidcCryptoPassphrase" . }}
 {{- $cr := .Files.Get "files/openstack-cr.yaml" }}
 {{- $cr = $cr | replace "__APIVERSION__" .Values.compositionApiVersions.openstack }}
 {{- $cr = $cr | replace "__NAMESPACE__" $ns }}
 {{- $cr = $cr | replace "__PROFILE__" .Values.openstack.profile }}
+{{- $cr = $cr | replace "__UNDERLAY_MTU__" (toString (int .Values.openstack.underlayMTU)) }}
 {{- $cr = $cr | replace "__KEYSTONE_IMAGE__" .Values.keystoneImage }}
 {{- $cr = $cr | replace "__REALM__" .Values.realm }}
 {{- $cr = $cr | replace "__KEYCLOAK_HOST__" $keycloak }}
 {{- $cr = $cr | replace "__KEYSTONE_HOST__" $keystone }}
 {{- $cr = $cr | replace "__HORIZON_HOST__" $horizon }}
-{{- $cr = $cr | replace "__KEYSTONE_CLIENT_SECRET__" $ksSecret }}
-{{- $cr = $cr | replace "__OIDC_CRYPTO_PASSPHRASE__" $crypto }}
 # W5 — openstack-instantiate: apply the Openstack CR with the FINAL federation
 # componentValues. GET-before-create -> applied ONCE, NEVER re-patched (this is
-# what dodges the fernet churn + umbrella Horizon-prune deadlock). The generated
-# secret pair is injected at chart-render time (byte-stable across re-renders).
+# what dodges the fernet churn + umbrella Horizon-prune deadlock). The CR carries
+# no secret: keystone reads the generated pair from its Secrets (oidc.*Ref).
 ---
 apiVersion: v1
 kind: ServiceAccount

@@ -27,7 +27,7 @@ hosts:
   portal: ""      # <baseHost>            — child Krateo portal (authn redirect root)
 
 # The mod_auth_openidc-enabled Keystone image (baked at CR creation).
-keystoneImage: "ghcr.io/krateo-blueprints/keystone-oidc:2025.1-ubuntu_jammy"
+keystoneImage: "ghcr.io/krateo-blueprints/keystone-oidc:2026.1-ubuntu_noble-0.2.0@sha256:9518ae8bdab7c8c80db59b310285c48df03b90feb232627c5854c05dc7a7e2af"
 
 # The tenant's login username. Declared as a KeycloakUser (08-keycloak-user.yaml), so
 # the identity lives in Keycloak and the OIDC federation this chart configures carries it
@@ -45,6 +45,11 @@ demoUserPassword: ""
 
 openstack:
   profile: identity      # identity = MariaDB+Memcached+Keystone+Glance+Horizon
+  # The tunnel NIC MTU of the nodes the child's OpenStack runs on, set as the Openstack CR's
+  # network.underlayMTU. openstack 0.3.74 refuses to start neutron's OVS agent when the node MTU is
+  # below it, and its own default is 1500. GKE nodes are 1460, so that is the default here; set the
+  # host's real value on any other platform.
+  underlayMTU: 1460
   domain: keycloak       # federation domain (NB: "federated" is reserved by Keystone)
   demoProject: demo      # JIT auto-provisioned project
 
@@ -88,7 +93,7 @@ compositionApiVersions:
   keycloak: "composition.krateo.io/v0-1-3"
   keycloakConfigKog: "composition.krateo.io/v0-4-3"
   keystoneKog: "composition.krateo.io/v0-2-3"
-  openstack: "composition.krateo.io/v0-3-6"
+  openstack: "composition.krateo.io/v0-3-74"
 
 # In-cluster service endpoints (server-to-server; NOT the issuer). Admin/token
 # calls take these fast in-cluster paths, unaffected by external TLS.
