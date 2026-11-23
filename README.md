@@ -37,8 +37,9 @@ GKE can resize a new cluster's control plane unrequested, about 30 minutes after
 happens mid-install, a component's composition controller can lose its lease and report
 `HooksMayNotHaveRun`, and its release stays wedged. The recovery documented by openstack-as-a-service
 0.3.74 is to set `rerunHooks.<component>: "<timestamp>"` on the child's `Openstack` spec, which runs that
-component's hooks again. Whether core-provider recovers this by itself is an open question to its
-owners. Until it does, check a child's components for `HooksMayNotHaveRun` after its first install.
+component's hooks again. Automatic recovery for an interrupted fresh install is tracked in
+krateo-platformops/core-provider#629. Until a child runs a core-provider release that includes it, check
+the child's components for `HooksMayNotHaveRun` after its first install.
 
 ## Known follow-ups
 - Declarative MFA: replace the imperative `55-job-mfa-bootstrap` + `files/mfa/build-*.py` with
