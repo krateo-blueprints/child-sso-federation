@@ -53,10 +53,12 @@ enabled: true
 
 # Does the KeycloakUser CR own the user's credentials?
 #
-# FALSE until keycloak-operator-kog#15 is fixed. The KOG silently ignores `credentials[]`:
-# 0.1.19 made the CR the owner on the assumption it would write both password and OTP, and
-# the result was a user with NEITHER, so every login failed. While this is false the
-# federation chart's build-user.py is the single owner.
+# FALSE: the federation chart's build-user.py is the single owner. The KOG version that chart
+# pins (0.4.3) ignores `credentials[]` (keycloak-provider-kog#15): 0.1.19 made the CR the owner on
+# the assumption it would write both password and OTP, and the user got NEITHER, so every login
+# failed. 0.4.5 and later write them, but any later update of the user sends the password again,
+# which puts back one the person has changed, and never the OTP. Turning this on needs a newer KOG
+# pin and only fits a user whose password nobody changes.
 #
 # Do NOT set both owners. Keycloak's PUT /users/{id} replaces the whole credential array, so
 # two writers wipe each other -- and the identity chart applies AFTER the bootstrap Job, so

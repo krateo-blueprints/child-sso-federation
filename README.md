@@ -55,5 +55,5 @@ Keep the manual recovery at hand on any version.
 ## Known follow-ups
 - Declarative MFA: replace the imperative `55-job-mfa-bootstrap` + `files/mfa/build-*.py` with
   `keycloak.ogen.krateo.io` CRs once the KOG RestDefinition gaps close
-  (braghettos/krateo-keycloak-operator-kog#6).
+  (krateo-blueprints/keycloak-provider-kog#6).
 - RBAC-gap fixes for two wait-loops (deployments/secrets read) — see repo issues.
