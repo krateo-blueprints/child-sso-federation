@@ -44,12 +44,13 @@ spec:
        blocks direct login and breaks the zero-click SSO path. */}}
   requiredActions: []
 {{- if .Values.credentialsOwnedByCR }}
-  {{/* Rendered ONLY when this CR owns the credentials. It does not today: the KOG silently
-       ignores credentials[] (keycloak-provider-kog#15), and 0.1.19 shipped this block as the
-       sole owner, which produced a user with no password and no OTP. Declaring it while the
+  {{/* Rendered ONLY when this CR owns the credentials. It does not today: the KOG
+       version this release pins (0.4.3) ignores credentials[] (keycloak-provider-kog#15, fixed in
+       0.4.5), and 0.1.19 shipped this block as the sole owner, which produced a user with no
+       password and no OTP. Declaring it while the
        bootstrap Job also writes would be worse than useless -- this chart applies AFTER the
        Job, and Keycloak replaces the whole credential array on write, so it would undo a
-       working credential. Flip credentialsOwnedByCR once the KOG applies the field. */}}
+       working credential. See values.yaml before turning credentialsOwnedByCR on. */}}
   credentials:
     - type: password
       valueSecretRef:

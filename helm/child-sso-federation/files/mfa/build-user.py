@@ -39,14 +39,15 @@ print("user id:",uid)
 #
 # 0.1.19 handed ownership to the KeycloakUser CR (child-sso-identity) on the premise that
 # the CR would write both credentials in one request. That premise is false: the KOG
-# silently ignores `credentials[]` entirely (keycloak-provider-kog#15, still open), so the
+# silently ignored `credentials[]` entirely (keycloak-provider-kog#15), so the
 # user was created with NO password and NO OTP and every login failed. Ownership is back
-# here until that issue is fixed, because this is the writer that demonstrably works.
+# here, because this is the writer that demonstrably works. Fixed in keycloak-config-kog 0.4.5,
+# but this chart pins 0.4.3, and a fixed KOG re-sends the password on every update of the user.
 #
 # The one-writer rule still holds and still matters: a PUT /users/{id} carrying
 # `credentials:[...]` REPLACES the entire credential array, so two writers wipe each other.
 # child-sso-identity therefore declares its credential block only when
-# `credentialsOwnedByCR=true`, which stays false until the KOG applies it.
+# `credentialsOwnedByCR=true`, which stays false.
 #
 # Order is load-bearing: OTP FIRST via PUT (which replaces the array), then the password via
 # /reset-password, which ADDS a password credential WITHOUT touching the OTP. Reversing these
