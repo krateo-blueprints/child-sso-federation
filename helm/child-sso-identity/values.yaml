@@ -53,7 +53,7 @@ enabled: true
 
 # Does the KeycloakUser CR own the user's credentials?
 #
-# FALSE until keycloak-operator-kog#15 is fixed. The KOG silently ignores `credentials[]`:
+# FALSE until keycloak-provider-kog#15 is fixed. The KOG silently ignores `credentials[]`:
 # 0.1.19 made the CR the owner on the assumption it would write both password and OTP, and
 # the result was a user with NEITHER, so every login failed. While this is false the
 # federation chart's build-user.py is the single owner.

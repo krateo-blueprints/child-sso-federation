@@ -39,7 +39,7 @@ print("user id:",uid)
 #
 # 0.1.19 handed ownership to the KeycloakUser CR (child-sso-identity) on the premise that
 # the CR would write both credentials in one request. That premise is false: the KOG
-# silently ignores `credentials[]` entirely (keycloak-operator-kog#15, still open), so the
+# silently ignores `credentials[]` entirely (keycloak-provider-kog#15, still open), so the
 # user was created with NO password and NO OTP and every login failed. Ownership is back
 # here until that issue is fixed, because this is the writer that demonstrably works.
 #

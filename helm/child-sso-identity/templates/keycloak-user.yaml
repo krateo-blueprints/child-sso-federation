@@ -45,7 +45,7 @@ spec:
   requiredActions: []
 {{- if .Values.credentialsOwnedByCR }}
   {{/* Rendered ONLY when this CR owns the credentials. It does not today: the KOG silently
-       ignores credentials[] (keycloak-operator-kog#15), and 0.1.19 shipped this block as the
+       ignores credentials[] (keycloak-provider-kog#15), and 0.1.19 shipped this block as the
        sole owner, which produced a user with no password and no OTP. Declaring it while the
        bootstrap Job also writes would be worse than useless -- this chart applies AFTER the
        Job, and Keycloak replaces the whole credential array on write, so it would undo a
